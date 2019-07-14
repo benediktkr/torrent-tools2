@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
+import shutil
 import os
 
 from guessit import guessit
 
 
 
-def walk(src, dst):
+def sort(src, dst):
     titles = {'episode': set(), 'movie': set()}
     ignored = set()
     qs = ['720p', '1080p']
@@ -40,10 +41,19 @@ def walk(src, dst):
                     else:
                         ignored.add(f)
             except KeyError:
-                continue
+                ignored.add(f)
 
 
-    print("Found {} movie titles and {} shows".format(len(titles['movie']), len(titles['episode'])))
+    if args.debug:
+        print("Ignored files:")
+        for ign in ignored:
+            print("* {}".format(ign))
+
+    print("Found {} movie titles and {} shows".format(
+        len(titles['movie']),
+        len(titles['episode']))
+    )
+
 
 
 def move(src, dst, type, title):
@@ -51,18 +61,22 @@ def move(src, dst, type, title):
     dst = os.path.join(dst, type + "s")
     if type == "episode":
         dst = os.path.join(dst, title)
-    #print("{} -> {}/".format(src, dst))
+
+    if args.debug:
+        print("{} -> {}/".format(src, dst))
+
     os.makedirs(dst, exist_ok=True)
+    shutil.move(src, dst)
 
     # touch the basename to simulate some moving
     import pathlib
-    print(os.path.basename(src))
-    pathlib.Path(os.path.basename(src)).touch()
+    pathlib.Path(os.path.join(dst, os.path.basename(src))).touch()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("src")
     parser.add_argument("dst")
+    parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
-    walk(args.src, args.dst)
+    sort(args.src, args.dst)
