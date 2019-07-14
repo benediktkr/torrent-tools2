@@ -8,7 +8,7 @@ from guessit import guessit
 
 
 
-def sort(src, dst):
+def sort(src, dst, dry_run=False):
     titles = {'episode': set(), 'movie': set()}
     ignored = set()
     qs = ['720p', '1080p']
@@ -32,12 +32,13 @@ def sort(src, dst):
                         if guess_basename['title'].title() == title:
                             # This means we're moving the entire parent dir
                             # so there's no need to continue with the rest
-                            move(root, dst, d['type'], title)
+                            move(root, dst, d['type'], title, dry_run)
                             break
                         else:
                             # We are moving a singular file, so we need to
                             # continue in the loop (no break)
-                            move(os.path.join(root, f), dst, d['type'], title)
+                            src = os.path.join(root, f)
+                            move(src, dst, d['type'], title, dry_run)
                     else:
                         ignored.add(f)
             except KeyError:
@@ -56,7 +57,7 @@ def sort(src, dst):
 
 
 
-def move(src, dst, type, title):
+def move(src, dst, type, title, dry_run=False):
     # title = 'episode' or 'movie'. Adding s for plural.
     dst = os.path.join(dst, type + "s")
     if type == "episode":
@@ -66,7 +67,8 @@ def move(src, dst, type, title):
         print("{} -> {}/".format(src, dst))
 
     os.makedirs(dst, exist_ok=True)
-    shutil.move(src, dst)
+    if not dry_run:
+        shutil.move(src, dst)
 
     # touch the basename to simulate some moving
     import pathlib
@@ -77,6 +79,7 @@ if __name__ == "__main__":
     parser.add_argument("src")
     parser.add_argument("dst")
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    sort(args.src, args.dst)
+    sort(args.src, args.dst, args.dry_run)
