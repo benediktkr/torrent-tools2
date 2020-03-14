@@ -8,7 +8,7 @@ from guessit import guessit
 
 
 
-def sort(src, dst, dry_run=False):
+def sort(src, dst, cp, dry_run=False):
     titles = {'episode': set(), 'movie': set()}
     ignored = set()
     qs = ['720p', '1080p']
@@ -32,13 +32,13 @@ def sort(src, dst, dry_run=False):
                         if guess_basename['title'].title() == title:
                             # This means we're moving the entire parent dir
                             # so there's no need to continue with the rest
-                            move(root, dst, d['type'], title, dry_run)
+                            move(root, dst, d['type'], title, cp, dry_run)
                             break
                         else:
                             # We are moving a singular file, so we need to
                             # continue in the loop (no break)
                             src = os.path.join(root, f)
-                            move(src, dst, d['type'], title, dry_run)
+                            move(src, dst, d['type'], title, cp, dry_run)
                     else:
                         ignored.add(f)
             except KeyError:
