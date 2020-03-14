@@ -57,7 +57,7 @@ def sort(src, dst, dry_run=False):
 
 
 
-def move(src, dst, type, title, dry_run=False):
+def move(src, dst, type, title, cp=False, dry_run=False):
     # title = 'episode' or 'movie'. Adding s for plural.
     dst = os.path.join(dst, type + "s")
     if type == "episode":
@@ -68,7 +68,10 @@ def move(src, dst, type, title, dry_run=False):
 
     os.makedirs(dst, exist_ok=True)
     if not dry_run:
-        shutil.move(src, dst)
+        if cp:
+            shutil.copyfile(src, dst)
+        else:
+            shutil.move(src, dst)
 
     # touch the basename to simulate some moving
     import pathlib
@@ -79,7 +82,8 @@ if __name__ == "__main__":
     parser.add_argument("src")
     parser.add_argument("dst")
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--cp", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    sort(args.src, args.dst, args.dry_run)
+    sort(args.src, args.dst, args.cp, args.dry_run)
