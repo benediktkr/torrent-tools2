@@ -69,7 +69,11 @@ def move(src, dst, type, title, cp=False, dry_run=False):
     os.makedirs(dst, exist_ok=True)
     if not dry_run:
         if cp:
-            shutil.copyfile(src, dst)
+            if os.path.exists(dst):
+                if args.debug:
+                    print("skipping: {}".format(dst))
+            else:
+                shutil.copyfile(src, dst)
         else:
             shutil.move(src, dst)
 
