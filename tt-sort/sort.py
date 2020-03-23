@@ -3,6 +3,7 @@
 import argparse
 import shutil
 import os
+import pathlib
 
 from guessit import guessit
 from colorama import Fore, Style
@@ -10,7 +11,10 @@ from colorama import Fore, Style
 Yellow = Fore.YELLOW
 Green = Fore.GREEN
 RESET_ALL = Style.RESET_ALL
+CACHE_FILE="/tmp/ttsort.list"
 
+def touch(path):
+    return pathlib.Path(path).touch()
 
 def sort(src, dst, cp, dry_run=False, verbose=False):
     titles = {'episode': set(), 'movie': set()}
@@ -37,7 +41,7 @@ def sort(src, dst, cp, dry_run=False, verbose=False):
                             # This means we're moving the entire parent dir
                             # so there's no need to continue with the rest
                             r = move(root, dst, d['type'], title, cp, dry_run)
-                            if verbose:
+                            if verbose or "skipped" not in r:
                                 print("{}: {}".format(r, root.split("/")[-1]))
 
                             break
@@ -54,38 +58,56 @@ def sort(src, dst, cp, dry_run=False, verbose=False):
                 ignored.add(f)
 
 
-    if verbose:
+    if verbose and False:
         print("Ignored files:")
         for ign in ignored:
             print("* {}".format(ign))
 
-    print("Found {} movie titles and {} shows".format(
-        len(titles['movie']),
-        len(titles['episode']))
-    )
+    # print("Found {} movie titles and {} shows".format(
+    #     len(titles['movie']),
+    #     len(titles['episode']))
+    # )
 
 
+def in_cache(name):
+    try:
+        with open(CACHE_FILE, 'r') as f:
+            return name in [l.rstrip() for l in f]
+    except FileNotFoundError:
+        return False
+
+def add_cache(name):
+    mode = "a" if os.path.exists(CACHE_FILE) else "w"
+    with open(CACHE_FILE, 'a') as f:
+        f.write(name + "\n")
 
 def move(src, dst, type, title, cp=False, dry_run=False):
+    src2 = src.split('/')[-1]
+    # to avoid spinning up platter disk
+    if in_cache(src2):
+        return Yellow + "skipped (cache)" + RESET_ALL
+
     # title = 'episode' or 'movie'. Adding s for plural.
     dst = os.path.join(dst, type + "s")
     if type == "episode":
         dst = os.path.join(dst, title)
-
     os.makedirs(dst, exist_ok=True)
 
-    src2 = src.split('/')[-1]
     if not dry_run:
         if cp:
             if os.path.exists(os.path.join(dst, src2)):
+                add_cache(src2)
                 return Yellow + "skipped" + RESET_ALL
             # copy2 preserves metadata
             try:
+                # if its a file
                 shutil.copy2(src, dst)
+                add_cache(src2)
                 return Green + "copied" + RESET_ALL
             except IsADirectoryError:
-                #return Yellow + "skipped" + RESET_ALL
+                # if its a dir
                 shutil.copytree(src, os.path.join(dst, src2))
+                add_cache(src2)
                 return Green + "copied" + RESET_ALL
         else:
             shutil.move(src, dst)
@@ -93,7 +115,6 @@ def move(src, dst, type, title, cp=False, dry_run=False):
 
     if dry_run:
         # touch the basename to simulate some moving
-        import pathlib
         pathlib.Path(os.path.join(dst, os.path.basename(src))).touch()
         return "dry_run"
 
