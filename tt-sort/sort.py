@@ -13,6 +13,8 @@ Green = Fore.GREEN
 RESET_ALL = Style.RESET_ALL
 CACHE_FILE="/tmp/ttsort.list"
 
+RSYNC_LOCKFILE = "/tmp/tt-rsync.lock"
+
 def touch(path):
     return pathlib.Path(path).touch()
 
@@ -126,5 +128,9 @@ if __name__ == "__main__":
     parser.add_argument("--cp", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
+
+    if os.path.exists(RSYNC_LOCKFILE):
+        print("{} exists, exiting")
+        raise SystemExit(2)
 
     sort(args.src, args.dst, args.cp, args.dry_run, args.verbose)
