@@ -58,11 +58,11 @@ def sort(src, dst, cp, dry_run=False, verbose=False, ignore_cache=False):
                             dr = dry_run
                             i = ignore_cache
                             r = move(root, dst, ty, ti, cp, dr, i)
-                            new = "skipped" in r
+                            new = "skipped" not in r
                             if verbose or new:
                                 msg = "{}: {}".format(r, root.split("/")[-1])
                                 print(msg)
-                                notify(d, "skipped" not in r)
+                                notify(d, new)
                             break
                         else:
                             # We are moving a singular file, so we need to
@@ -75,7 +75,7 @@ def sort(src, dst, cp, dry_run=False, verbose=False, ignore_cache=False):
                             i = ignore_cache
                             r = move(src, dst, ty, ti, cp, dr, i)
                             new = "skipped" not in r
-                            if verbose or skipped not in r:
+                            if verbose or new:
                                 msg = "{}: {}".format(r, src.split("/")[-1])
                                 print(msg)
                                 notify(d, new)
@@ -145,7 +145,7 @@ def move(src, dst, type, title, cp=False, dry_run=False, ignore_cache=False):
         if os.path.isfile(os.path.join(src, f))
     )
     if size < 100000000:
-        return color("ignored")
+        return color("skipped (waiting)")
 
     # title = 'episode' or 'movie'. Adding s for plural.
     dst = os.path.join(dst, type + "s")
