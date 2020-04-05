@@ -8,6 +8,7 @@ verify_ssl = true
 [packages]
 guessit = "*"
 colorama = "*"
+sudoisbot = "*"
 
 [requires]
 python_version = "3.7"

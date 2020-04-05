@@ -8,9 +8,8 @@ import pathlib
 from guessit import guessit
 from colorama import Fore, Style
 
-Yellow = Fore.YELLOW
-Green = Fore.GREEN
-RESET_ALL = Style.RESET_ALL
+from sudoisbot import sendmsg
+
 CACHE_FILE="/tmp/ttsort.list"
 
 RSYNC_LOCKFILE = "/tmp/tt-rsync.lock"
@@ -18,7 +17,7 @@ RSYNC_LOCKFILE = "/tmp/tt-rsync.lock"
 def touch(path):
     return pathlib.Path(path).touch()
 
-def sort(src, dst, cp, dry_run=False, verbose=False):
+def sort(src, dst, cp, dry_run=False, verbose=False, ignore_cache=False):
     titles = {'episode': set(), 'movie': set()}
     ignored = set()
     qs = ['720p', '1080p']
@@ -42,19 +41,35 @@ def sort(src, dst, cp, dry_run=False, verbose=False):
                         if guess_basename['title'].title() == title:
                             # This means we're moving the entire parent dir
                             # so there's no need to continue with the rest
-                            r = move(root, dst, d['type'], title, cp, dry_run)
+                            # very indented, saving space with smaller vars
+                            ty = d['type']
+                            ti = title
+                            d = dry_run
+                            i = ignore_cache
+                            r = move(root, dst, ty, ti, cp, d, i)
                             if verbose or "skipped" not in r:
-                                print("{}: {}".format(r, root.split("/")[-1]))
+                                msg = "{}: {}".format(r, root.split("/")[-1])
+                                print(msg)
+                                sendmsg.send_to_me(msg)
 
                             break
                         else:
                             # We are moving a singular file, so we need to
                             # continue in the loop (no break)
                             src = os.path.join(root, f)
-                            r = move(src, dst, d['type'], title, cp, dry_run)
+                            print(f)
+                            # very indented, saving space with smaller vars
+                            ty = d['type']
+                            ti = title
+                            d = dry_run
+                            i = ignore_cache
+                            r = move(src, dst, ty, ti, cp, d, i)
                             if verbose:
                                 print("{}: {}".format(r, src.split("/")[-1]))
+
+
                     else:
+
                         ignored.add(f)
             except KeyError:
                 ignored.add(f)
@@ -79,15 +94,45 @@ def in_cache(name):
         return False
 
 def add_cache(name):
+    if in_cache(name):
+        return
     mode = "a" if os.path.exists(CACHE_FILE) else "w"
     with open(CACHE_FILE, 'a') as f:
         f.write(name + "\n")
 
-def move(src, dst, type, title, cp=False, dry_run=False):
-    src2 = src.split('/')[-1]
+def colorwap(text, color):
+    return color + text + Style.RESET_ALL
+
+def colored(text):
+    Yellow = Fore.YELLOW
+    Green = Fore.GREEN
+    Red = Fore.RED
+
+    if text.startswith("skipped"):
+        return colorwrap(text, Yellow)
+    if text.startswith("ignored"):
+        return colorwrap(text, Yellow)
+    if text.startswith("copied"):
+        return colorwrap(text, Green)
+    if text.startswith("moved"):
+        return colorwrap(text, Green)
+    else:
+        return colorwrap(text, Red)
+
+def move(src, dst, type, title, cp=False, dry_run=False, ignore_cache=False):
+    name = src.split('/')[-1]
+
     # to avoid spinning up platter disk
-    if in_cache(src2):
+    if in_cache(name) and not ignore_cache:
         return Yellow + "skipped (cache)" + RESET_ALL
+
+    # 100 mb
+    size = sum(
+        os.path.getsize(os.path.join(src, f)) for f in os.listdir(src)
+        if os.path.isfile(os.path.join(src, f))
+    )
+    if size < 100000000:
+        return color("ignored")
 
     # title = 'episode' or 'movie'. Adding s for plural.
     dst = os.path.join(dst, type + "s")
@@ -97,23 +142,23 @@ def move(src, dst, type, title, cp=False, dry_run=False):
 
     if not dry_run:
         if cp:
-            if os.path.exists(os.path.join(dst, src2)):
-                add_cache(src2)
-                return Yellow + "skipped" + RESET_ALL
+            if os.path.exists(os.path.join(dst, name)):
+                add_cache(name)
+                return color("skipped")
             # copy2 preserves metadata
             try:
                 # if its a file
                 shutil.copy2(src, dst)
-                add_cache(src2)
-                return Green + "copied" + RESET_ALL
+                add_cache(name)
+                return color("copied")
             except IsADirectoryError:
                 # if its a dir
-                shutil.copytree(src, os.path.join(dst, src2))
-                add_cache(src2)
-                return Green + "copied" + RESET_ALL
+                shutil.copytree(src, os.path.join(dst, name))
+                add_cache(name)
+                return color("copied")
         else:
             shutil.move(src, dst)
-            return Green + "moved" + RESET_ALL
+            return color("moved")
 
     if dry_run:
         # touch the basename to simulate some moving
@@ -124,6 +169,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("src")
     parser.add_argument("dst")
+    parser.add_argument("--ignore-cache", action="store_true")
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("--cp", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
@@ -133,4 +179,4 @@ if __name__ == "__main__":
         print("{} exists, exiting")
         raise SystemExit(2)
 
-    sort(args.src, args.dst, args.cp, args.dry_run, args.verbose)
+    sort(args.src, args.dst, args.cp, args.dry_run, args.verbose, args.ignore_cache)
