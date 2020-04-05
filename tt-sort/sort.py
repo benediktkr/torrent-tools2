@@ -17,6 +17,17 @@ RSYNC_LOCKFILE = "/tmp/tt-rsync.lock"
 def touch(path):
     return pathlib.Path(path).touch()
 
+def notify(d, new):
+    if not new:
+        return
+    if d['type'] == 'episode':
+        text = "new: {title} S{season} E{episode}".format(**d)
+        sendmsg.send_to_me(text)
+    else:
+        text = "new: " + d['title']
+        sendmsg.send_to_me(text)
+
+
 def sort(src, dst, cp, dry_run=False, verbose=False, ignore_cache=False):
     titles = {'episode': set(), 'movie': set()}
     ignored = set()
@@ -44,28 +55,30 @@ def sort(src, dst, cp, dry_run=False, verbose=False, ignore_cache=False):
                             # very indented, saving space with smaller vars
                             ty = d['type']
                             ti = title
-                            d = dry_run
+                            dr = dry_run
                             i = ignore_cache
-                            r = move(root, dst, ty, ti, cp, d, i)
-                            if verbose or "skipped" not in r:
+                            r = move(root, dst, ty, ti, cp, dr, i)
+                            new = "skipped" in r
+                            if verbose or new:
                                 msg = "{}: {}".format(r, root.split("/")[-1])
                                 print(msg)
-                                sendmsg.send_to_me(msg)
-
+                                notify(d, "skipped" not in r)
                             break
                         else:
                             # We are moving a singular file, so we need to
                             # continue in the loop (no break)
                             src = os.path.join(root, f)
-                            print(f)
                             # very indented, saving space with smaller vars
                             ty = d['type']
                             ti = title
-                            d = dry_run
+                            dr = dry_run
                             i = ignore_cache
-                            r = move(src, dst, ty, ti, cp, d, i)
-                            if verbose:
-                                print("{}: {}".format(r, src.split("/")[-1]))
+                            r = move(src, dst, ty, ti, cp, dr, i)
+                            new = "skipped" not in r
+                            if verbose or skipped not in r:
+                                msg = "{}: {}".format(r, src.split("/")[-1])
+                                print(msg)
+                                notify(d, new)
 
 
                     else:
@@ -100,10 +113,10 @@ def add_cache(name):
     with open(CACHE_FILE, 'a') as f:
         f.write(name + "\n")
 
-def colorwap(text, color):
+def colorwrap(text, color):
     return color + text + Style.RESET_ALL
 
-def colored(text):
+def color(text):
     Yellow = Fore.YELLOW
     Green = Fore.GREEN
     Red = Fore.RED
@@ -124,7 +137,7 @@ def move(src, dst, type, title, cp=False, dry_run=False, ignore_cache=False):
 
     # to avoid spinning up platter disk
     if in_cache(name) and not ignore_cache:
-        return Yellow + "skipped (cache)" + RESET_ALL
+        return color("skipped (cache)")
 
     # 100 mb
     size = sum(
